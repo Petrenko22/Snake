@@ -114,7 +114,7 @@ void Move() {
 
     Sleep(100);
 };
-int main() 
+int main() {
    
     return 0;
 }
