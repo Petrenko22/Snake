@@ -3,9 +3,10 @@
 #include <windows.h>
 #include <dos.h>
 #include <time.h>
-#include <vector>
 
 #define MAXSNAKESIZE 100
+#define MAXFRAMEX 119
+#define MAXFRAMEY 29
 
 using namespace std;
 
@@ -17,43 +18,17 @@ void gotoxy(int x, int y) {
 	CursorPosition.Y = y;
 	SetConsoleCursorPosition(console, CursorPosition);
 }
-
-class Map {
-	const int BORDER = 100;
-	const int EMPTY_CELL = 0;
-	int size;
-	vector <vector<int>> map;
-
-	Map() {
-		size = 20;
+void setcursor(bool visible, DWORD size) // установить bool visible = 0 - невидимый, bool visible = 1 - видимый
+{
+	if (size == 0)
+	{
+		size = 20;	// размер курсора по умолчанию Изменение на числа от 1 до 20 уменьшает ширину курсора
 	}
-
-	void initMap() {
-		for (int i = 0; i < size; i++) {
-			vector <int> temp;
-			for (int j = 0; j < size; j++) {
-				if (i == 0 || j == 0 || i == size - 1 || j == size - 1)
-					temp.push_back(BORDER);
-				else
-					temp.push_back(EMPTY_CELL);
-			}
-			map.push_back(temp);
-		}
-	}
-
-	void show() {
-		for (int i = 0; i < size; i++) {
-			for (int j = 0; j < size; j++) {
-				if (map[j][i] == BORDER)
-					cout << "#";
-				else if (map[j][i] == EMPTY_CELL)
-					cout << " ";
-			}
-			
-			cout << "#" << endl;
-		}
-	}
-};
+	CONSOLE_CURSOR_INFO lpCursor;
+	lpCursor.bVisible = visible;
+	lpCursor.dwSize = size;
+	SetConsoleCursorInfo(console, &lpCursor);
+}
 
 class Point {
 private:
@@ -79,19 +54,27 @@ public:
 	}
 	void MoveUp() {
 		y--;
+		if (y < 0)
+			y = MAXFRAMEY;
 	}
 	void MoveDown() {
 		y++;
+		if (y > MAXFRAMEY)
+			y = 0;
 	}
 	void MoveLeft() {
 		x--;
+		if (x < 0)
+			x = MAXFRAMEX;
 	}
 	void MoveRight() {
 		x++;
+		if (x > MAXFRAMEX)
+			x = 0;
 	}
-	void Draw() {
+	void Draw(char ch = '*') {
 		gotoxy(x, y);
-		cout << "*";
+		cout << ch;
 	}
 	void Erase() {
 		gotoxy(x, y);
@@ -100,6 +83,11 @@ public:
 	void CopyPos(Point* p) {
 		p->x = x;
 		p->y = y;
+	}
+	int IsEqual(Point* p) {
+		if (p->x == x && p->y == y)
+			return 1;
+		return 0;
 	}
 	void Debug() {
 		cout << "(" << x << "," << y << ") ";
@@ -112,33 +100,64 @@ private:
 	int size; // текущий размер змеи
 	char dir; //текущее направление змеи
 	Point fruit;
+	int state; // bool, представляющий состояние змеи, т.е. живой, мертвый
+	int started;
+	int blink; // фрукты мигают 
 public:
 	Snake() {
-		size = 1; // размер по умолчанию
+		size = 1; //размер по умолчанию
 		cell[0] = new Point(20, 20); // 20,20 - позиция по умолчанию
 		for (int i = 1; i < MAXSNAKESIZE; i++) {
 			cell[i] = NULL;
 		}
-		fruit.SetPoint(rand() % 50, rand() % 25);
+		fruit.SetPoint(rand() % MAXFRAMEX, rand() % MAXFRAMEY);
+		state = 0;
+		started = 0;
 	}
 	void AddCell(int x, int y) {
 		cell[size++] = new Point(x, y);
 	}
 	void TurnUp() {
-		dir = 'w'; // w - клавиша управления для поворота вверх
+		if (dir != 's')
+			dir = 'w'; // w - клавиша управления для поворота вверх
 	}
 	void TurnDown() {
-		dir = 's'; //w - клавиша управления для поворота вниз
+		if (dir != 'w')
+			dir = 's'; //s - клавиша управления для поворота вниз
 	}
 	void TurnLeft() {
-		dir = 'a'; //w - клавиша управления для поворота налево
+		if (dir != 'd')
+			dir = 'a'; //a - клавиша управления для поворота налево
 	}
 	void TurnRight() {
-		dir = 'd'; // w - клавиша управления для поворота направо	
+		if (dir != 'a')
+			dir = 'd'; //d - клавиша управления для поворота направо
+	}
+	void WelcomeScreen() {
+		SetConsoleTextAttribute(console, 15);
+		cout << "\n  SNAKE "   ;
+
 	}
 	void Move() {
 		// Очисти экран
 		system("cls");
+
+		if (state == 0) {
+			if (!started) {
+				WelcomeScreen();
+				cout << "\nStart Game";
+				_getch();
+				started = 1;
+				state = 1;
+			}
+			else {
+				cout << "\nGame Over";
+				cout << "\nClick to continue";
+				_getch();
+				state = 1;
+				size = 1;
+			}
+		}
 
 		// заставить тело змеи следовать за головой
 		for (int i = size - 1; i > 0; i--) {
@@ -161,20 +180,37 @@ public:
 			break;
 		}
 
-		//Столкновение с фруктами
+		if (SelfCollision())
+			state = 0;
+
+
+
+
+		// Столкновение с фруктами
 		if (fruit.GetX() == cell[0]->GetX() && fruit.GetY() == cell[0]->GetY()) {
 			AddCell(0, 0);
-			fruit.SetPoint(rand() % 50, rand() % 25);
+			fruit.SetPoint(rand() % MAXFRAMEX, rand() % MAXFRAMEY);
 		}
 
-		//рисунок змея
+		// рисунок змея
 		for (int i = 0; i < size; i++)
 			cell[i]->Draw();
-		fruit.Draw();
+
+		SetConsoleTextAttribute(console, 15);
+		if (!blink)
+			fruit.Draw('+');
+		blink = !blink;
+		SetConsoleTextAttribute(console, 14);
 
 		//Debug();
 
 		Sleep(100);
+	}
+	int SelfCollision() {
+		for (int i = 1; i < size; i++)
+			if (cell[0]->IsEqual(cell[i]))
+				return 1;
+		return 0;
 	}
 	void Debug() {
 		for (int i = 0; i < size; i++) {
@@ -184,20 +220,21 @@ public:
 };
 
 int main() {
-	//рандом без генерации
+	// рандом без генерации
+	setcursor(0, 0);
 	srand((unsigned)time(NULL));
-	map.show();
+
 	// Тестовая змея
 	Snake snake;
 	char op = 'l';
 	do {
-		if ( _kbhit() ) {
+		if (_kbhit()) {
 			op = _getch();
 		}
 		switch (op) {
 		case 'w':
 		case 'W':
-			snake.TurnUp();
+			snake.TurnUp(); 
 			break;
 
 		case 's':
@@ -220,4 +257,3 @@ int main() {
 
 	return 0;
 }
-
