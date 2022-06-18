@@ -218,6 +218,16 @@ public:
 		}
 	}
 };
+symbol = getch();
+// считываем нажатую клавишу с помощью функции getch()
+	 switch (symbol) {
+	 case 72: if (change_x != 1 || change_y != 0) { change_x = -1; change_y = 0; } break;
+	 case 75: if (change_x != 0 || change_y != 1) { change_x = 0; change_y = -1; } break;
+	 case 80: if (change_x != -1 || change_y != 0) { change_x = 1; change_y = 0; } break;
+	 case 77: if (change_x != 0 || change_y != -1) { change_x = 0; change_y = 1; } break;
+		 // управление змейкой у нас через wasd
+	 case 32: change_color(2); break;
+		 // если нажат пробел, то меняем цвет консоли
 
 int main() {
 	// рандом без генерации
